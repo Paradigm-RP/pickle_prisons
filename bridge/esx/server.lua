@@ -127,12 +127,13 @@ CreateThread(function()
         cb(Inventory.GetInventory(source))
     end)
 
-    MySQL.ready(function() 
-        MySQL.Async.fetchAll("SELECT * FROM items;", {}, function(results) 
+    CreateThread(function()
+        local results = MySQL.query.await('SELECT * FROM items')
+        if results then
             for i=1, #results do 
                 Inventory.Items[results[i].name] = {label = results[i].label}
             end
-            Inventory.Ready = true
-        end)
+        end
+        Inventory.Ready = true
     end)
 end)
