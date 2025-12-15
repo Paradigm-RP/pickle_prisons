@@ -1,7 +1,7 @@
 fx_version "cerulean"
 game "gta5"
 author "Pickle Mods"
-version "v1.1.6"
+version "v1.2.0"
 
 ui_page "nui/index.html"
 
@@ -25,9 +25,15 @@ client_scripts {
 }
 
 server_scripts {
-	"@mysql-async/lib/MySQL.lua",
+	"@oxmysql/lib/MySQL.lua",
+	"bridge/database.lua",
 	"bridge/**/**/server.lua",
 	"modules/**/server.lua",
+}
+
+-- Auto-inject database on resource start
+database {
+	"_INSTALL/SQL/install.sql"
 }
 
 lua54 'yes'
