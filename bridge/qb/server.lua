@@ -1,13 +1,23 @@
-if GetResourceState('qb-core') ~= 'started' then return end
+if GetResourceState('qb-core') ~= 'started' and GetResourceState('qbx_core') ~= 'started' then return end
 
-QBCore = exports['qb-core']:GetCoreObject()
+local isQbox = GetResourceState('qbx_core') == 'started'
+QBCore = isQbox and exports.qbx_core or exports['qb-core']:GetCoreObject()
 
 function RegisterCallback(name, cb)
-    QBCore.Functions.CreateCallback(name, cb)
+    if isQbox then
+        lib.callback.register(name, cb)
+    else
+        QBCore.Functions.CreateCallback(name, cb)
+    end
 end
 
 function RegisterUsableItem(...)
-    QBCore.Functions.CreateUseableItem(...)
+    if isQbox then
+        -- Qbox uses exports['qbx_core']:RegisterUsableItem instead
+        exports['qbx_core']:RegisterUsableItem(...)
+    else
+        QBCore.Functions.CreateUseableItem(...)
+    end
 end
 
 function ShowNotification(target, text)
@@ -16,13 +26,24 @@ end
 
 function GetIdentifier(source)
     local source = tonumber(source)
-    local xPlayer = QBCore.Functions.GetPlayer(source).PlayerData
-    return xPlayer.citizenid 
+    if isQbox then
+        local Player = exports.qbx_core:GetPlayer(source)
+        return Player and Player.PlayerData.citizenid or nil
+    else
+        local Player = QBCore.Functions.GetPlayer(source)
+        return Player and Player.PlayerData.citizenid or nil
+    end
 end
 
 function SetPlayerMetadata(source, key, data)
     local source = tonumber(source)
-    QBCore.Functions.GetPlayer(source).Functions.SetMetaData(key, data)
+    if isQbox then
+        local Player = exports.qbx_core:GetPlayer(source)
+        if Player then Player.Functions.SetMetaData(key, data) end
+    else
+        local Player = QBCore.Functions.GetPlayer(source)
+        if Player then Player.Functions.SetMetaData(key, data) end
+    end
 end
 
 RegisterNetEvent("hospital:server:SetDeathStatus", function(status)
@@ -32,32 +53,55 @@ end)
 
 function AddMoney(source, count)
     local source = tonumber(source)
-    local xPlayer = QBCore.Functions.GetPlayer(source)
-    xPlayer.Functions.AddMoney('cash',count)
+    if isQbox then
+        local Player = exports.qbx_core:GetPlayer(source)
+        if Player then Player.Functions.AddMoney('cash', count) end
+    else
+        local Player = QBCore.Functions.GetPlayer(source)
+        if Player then Player.Functions.AddMoney('cash', count) end
+    end
 end
 
 function RemoveMoney(source, count)
     local source = tonumber(source)
-    local xPlayer = QBCore.Functions.GetPlayer(source)
-    xPlayer.Functions.RemoveMoney('cash',count)
+    if isQbox then
+        local Player = exports.qbx_core:GetPlayer(source)
+        if Player then Player.Functions.RemoveMoney('cash', count) end
+    else
+        local Player = QBCore.Functions.GetPlayer(source)
+        if Player then Player.Functions.RemoveMoney('cash', count) end
+    end
 end
 
 function GetMoney(source)
     local source = tonumber(source)
-    local xPlayer = QBCore.Functions.GetPlayer(source)
-    return xPlayer.PlayerData.money.cash
+    if isQbox then
+        local Player = exports.qbx_core:GetPlayer(source)
+        return Player and Player.PlayerData.money.cash or 0
+    else
+        local Player = QBCore.Functions.GetPlayer(source)
+        return Player and Player.PlayerData.money.cash or 0
+    end
 end
 
 function CheckPermission(source, permission)
-    local xPlayer = QBCore.Functions.GetPlayer(source).PlayerData
-    local name = xPlayer.job.name
-    local rank = xPlayer.job.grade.level
+    local Player = isQbox and exports.qbx_core:GetPlayer(source) or QBCore.Functions.GetPlayer(source)
+    if not Player then return false end
+    local PlayerData = Player.PlayerData
+    local name = PlayerData.job.name
+    local rank = PlayerData.job.grade.level
     if permission.jobs[name] and permission.jobs[name] <= rank then 
         return true
     end
-    for i=1, #permission.groups do 
-        if QBCore.Functions.HasPermission(source, permission.groups[i]) then 
-            return true 
+    for i=1, #permission.groups do
+        if isQbox then
+            if exports.qbx_core:HasPermission(source, permission.groups[i]) then
+                return true
+            end
+        else
+            if QBCore.Functions.HasPermission(source, permission.groups[i]) then 
+                return true 
+            end
         end
     end
 end
@@ -78,17 +122,29 @@ CreateThread(function()
 
     Inventory.CanCarryItem = function(source, name, count)
         local source = tonumber(source)
-        local xPlayer = QBCore.Functions.GetPlayer(source)
-        local weight = QBCore.Player.GetTotalWeight(xPlayer.PlayerData.items)
-        local item = QBCore.Shared.Items[name:lower()]
-        return ((weight + (item.weight * count)) <= QBCore.Config.Player.MaxWeight)
+        if isQbox then
+            local Player = exports.qbx_core:GetPlayer(source)
+            if not Player then return false end
+            local weight = exports.qbx_core:GetTotalWeight(Player.PlayerData.items)
+            local item = exports.qbx_core:GetItems()[name:lower()]
+            if not item then return false end
+            return ((weight + (item.weight * count)) <= exports.qbx_core:GetMaxWeight())
+        else
+            local Player = QBCore.Functions.GetPlayer(source)
+            if not Player then return false end
+            local weight = QBCore.Player.GetTotalWeight(Player.PlayerData.items)
+            local item = QBCore.Shared.Items[name:lower()]
+            if not item then return false end
+            return ((weight + (item.weight * count)) <= QBCore.Config.Player.MaxWeight)
+        end
     end
 
     Inventory.GetInventory = function(source)
         local source = tonumber(source)
-        local xPlayer = QBCore.Functions.GetPlayer(source)
+        local Player = isQbox and exports.qbx_core:GetPlayer(source) or QBCore.Functions.GetPlayer(source)
+        if not Player then return {} end
         local items = {}
-        local data = xPlayer.PlayerData.items
+        local data = Player.PlayerData.items
         for slot, item in pairs(data) do 
             items[#items + 1] = {
                 name = item.name,
@@ -103,14 +159,14 @@ CreateThread(function()
 
     Inventory.AddItem = function(source, name, count, metadata) -- Metadata is not required.
         local source = tonumber(source)
-        local xPlayer = QBCore.Functions.GetPlayer(source)
-        xPlayer.Functions.AddItem(name, count, nil, metadata)
+        local Player = isQbox and exports.qbx_core:GetPlayer(source) or QBCore.Functions.GetPlayer(source)
+        if Player then Player.Functions.AddItem(name, count, nil, metadata) end
     end
 
     Inventory.RemoveItem = function(source, name, count)
         local source = tonumber(source)
-        local xPlayer = QBCore.Functions.GetPlayer(source)
-        xPlayer.Functions.RemoveItem(name, count)
+        local Player = isQbox and exports.qbx_core:GetPlayer(source) or QBCore.Functions.GetPlayer(source)
+        if Player then Player.Functions.RemoveItem(name, count) end
     end
 
     Inventory.AddWeapon = function(source, name, count, metadata) -- Metadata is not required.
@@ -125,8 +181,9 @@ CreateThread(function()
 
     Inventory.GetItemCount = function(source, name)
         local source = tonumber(source)
-        local xPlayer = QBCore.Functions.GetPlayer(source)
-        local item = xPlayer.Functions.GetItemByName(name)
+        local Player = isQbox and exports.qbx_core:GetPlayer(source) or QBCore.Functions.GetPlayer(source)
+        if not Player then return 0 end
+        local item = Player.Functions.GetItemByName(name)
         return item and item.amount or 0
     end
 
@@ -139,8 +196,15 @@ CreateThread(function()
         cb(Inventory.GetInventory(source))
     end)
 
-    for item, data in pairs(QBCore.Shared.Items) do
-        Inventory.Items[item] = {label = data.label}
+    if isQbox then
+        local items = exports.qbx_core:GetItems()
+        for item, data in pairs(items) do
+            Inventory.Items[item] = {label = data.label}
+        end
+    else
+        for item, data in pairs(QBCore.Shared.Items) do
+            Inventory.Items[item] = {label = data.label}
+        end
     end
     Inventory.Ready = true
 end)

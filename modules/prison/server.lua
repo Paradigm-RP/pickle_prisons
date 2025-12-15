@@ -74,7 +74,6 @@ function TakeInventory(source)
     return inventory
 end
 
--- Define the JailPlayer function
 function JailPlayer(source, time, index, noSave)
     if Prisoners[source] then return end
     local index = index or "default"
@@ -91,18 +90,15 @@ function JailPlayer(source, time, index, noSave)
     SetPlayerMetadata(source, "injail", time)
     TriggerClientEvent("pickle_prisons:jailPlayer", source, Prisoners[source])
     if noSave then return end
-    MySQL.Async.execute("DELETE FROM pickle_prisons WHERE identifier=@identifier;", {["@identifier"] = identifier})
-    MySQL.Async.execute("INSERT INTO pickle_prisons (identifier, prison, time, inventory, sentence_date) VALUES (@identifier, @prison, @time, @inventory, @sentence_date);", {
-        ["@identifier"] = Prisoners[source].identifier,
-        ["@prison"] = Prisoners[source].index,
-        ["@time"] = Prisoners[source].time,
-        ["@inventory"] = json.encode(Prisoners[source].inventory),
-        ["@sentence_date"] = Prisoners[source].sentence_date,
+    MySQL.execute('DELETE FROM pickle_prisons WHERE identifier = ?', {identifier})
+    MySQL.execute('INSERT INTO pickle_prisons (identifier, prison, time, inventory, sentence_date) VALUES (?, ?, ?, ?, ?)', {
+        Prisoners[source].identifier,
+        Prisoners[source].index,
+        Prisoners[source].time,
+        json.encode(Prisoners[source].inventory),
+        Prisoners[source].sentence_date,
     })
 end
-
--- Export the JailPlayer function
-exports("JailPlayer", JailPlayer)
 
 function UnjailPlayer(source, breakout)
     local data = Prisoners[source]
@@ -110,7 +106,7 @@ function UnjailPlayer(source, breakout)
     local inventory = Prisoners[source].inventory
     Prisoners[source] = nil
     local identifier = GetIdentifier(source)
-    MySQL.Async.execute("DELETE FROM pickle_prisons WHERE identifier=@identifier;", {["@identifier"] = identifier})
+    MySQL.execute('DELETE FROM pickle_prisons WHERE identifier = ?', {identifier})
     SetPlayerMetadata(source, "injail", 0)
     StopActivity(source)
     if breakout then return end
@@ -122,10 +118,7 @@ end
 
 function UpdatePrisonTime(source, time)
     local identifier = GetIdentifier(source)
-    MySQL.Async.execute("UPDATE pickle_prisons SET time=@time WHERE identifier=@identifier", {
-        ["@identifier"] = identifier,
-        ["@time"] = time,
-    })
+    MySQL.execute('UPDATE pickle_prisons SET time = ? WHERE identifier = ?', {time, identifier})
 end
 
 RegisterCallback("pickle_prisons:canBreakout", function(source, cb, index)
@@ -178,27 +171,26 @@ end)
 RegisterNetEvent("pickle_prisons:initializePlayer", function()
     local source = source
     local identifier = GetIdentifier(source)
-    MySQL.Async.fetchAll("SELECT * FROM pickle_prisons WHERE identifier=@identifier;", {["@identifier"] = identifier}, function(results) 
-        local result = results[1]
-        if result then 
-            local time = result.time
-            if Config.ServeTimeOffline then
-                time = (os.time() - result.sentence_date)
-            end
-            Prisoners[source] = {
-                identifier = result.identifier,
-                index = result.prison,
-                time = time,
-                inventory = json.decode(result.inventory),
-                sentence_date = result.sentence_date,
-            } 
-            if time <= 0 then 
-                return UnjailPlayer(source)
-            end  
-            SetPlayerMetadata(source, "injail", time)
-            TriggerClientEvent("pickle_prisons:jailPlayer", source, Prisoners[source])
+    local results = MySQL.query.await('SELECT * FROM pickle_prisons WHERE identifier = ?', {identifier})
+    local result = results[1]
+    if result then 
+        local time = result.time
+        if Config.ServeTimeOffline then
+            time = (os.time() - result.sentence_date)
         end
-    end)
+        Prisoners[source] = {
+            identifier = result.identifier,
+            index = result.prison,
+            time = time,
+            inventory = json.decode(result.inventory),
+            sentence_date = result.sentence_date,
+        } 
+        if time <= 0 then 
+            return UnjailPlayer(source)
+        end  
+        SetPlayerMetadata(source, "injail", time)
+        TriggerClientEvent("pickle_prisons:jailPlayer", source, Prisoners[source])
+    end
     UpdateLootables(source)
     TriggerClientEvent("pickle_prisons:setupInventory", source, {items = Inventory.Items})
 end)

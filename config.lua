@@ -8,7 +8,7 @@ Config.RenderDistance = 20.0 -- Model Display Radius.
 
 Config.InteractDistance = 2.0 -- Interact Radius
 
-Config.UseTarget = false -- When set to true, it'll use targeting instead of key-presses to interact.
+Config.UseTarget = true -- When set to true, it'll use targeting instead of key-presses to interact.
 
 Config.NoModelTargeting = true -- When set to true and using Target, it'll spawn a small invisible prop so you can third-eye when no entity is defined.
 
@@ -45,15 +45,15 @@ Config.XPCategories = { -- Registered XP Types for Pickle's XP.
 Config.Default = {
     permissions = { -- Permissions settings for jailing, unjailing, and other things.
         jail = {
-            jobs = {["police"] = 0, ["corrections"] = 0}, -- ["job_name"] = rank_number, ["job_name2"] = rank_number2,
+            jobs = {["police"] = 0, ["corrections"] = 0, ["sheriff"] = 0}, -- ["job_name"] = rank_number, ["job_name2"] = rank_number2,
             groups = {"admin", "god"} -- "group1", "group2"
         },
         unjail = {
-            jobs = {["police"] = 2, ["corrections"] = 2},
+            jobs = {["police"] = 2, ["corrections"] = 2, ["sheriff"] = 2},
             groups = {"admin", "god"}
         },
         alert = {
-            jobs = {["police"] = 0, ["corrections"] = 0},
+            jobs = {["police"] = 0, ["corrections"] = 0, ["sheriff"] = 0},
             groups = {"admin", "god"}
         },
     },
