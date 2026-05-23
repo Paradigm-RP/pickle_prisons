@@ -91,6 +91,7 @@ function JailPlayer(source, time, index, noSave)
     TriggerClientEvent("pickle_prisons:jailPlayer", source, Prisoners[source])
     if noSave then return end
     MySQL.execute('DELETE FROM pickle_prisons WHERE identifier = ?', {identifier})
+    Wait(150)
     MySQL.execute('INSERT INTO pickle_prisons (identifier, prison, time, inventory, sentence_date) VALUES (?, ?, ?, ?, ?)', {
         Prisoners[source].identifier,
         Prisoners[source].index,
